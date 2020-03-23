@@ -19,6 +19,10 @@ class AccountJournal(models.Model):
         domain="[('company_id', '=', company_id)]", ondelete='restrict',
         help="The sequence used for refund invoices numbers in this journal.",
     )
+    invoice_date_reference = fields.Boolean(
+        'Force use invoice date for sequence number calculation',
+        default=False,
+    )
 
     @api.multi
     @api.constrains('invoice_sequence_id')

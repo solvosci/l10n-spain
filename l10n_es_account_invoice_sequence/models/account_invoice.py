@@ -26,6 +26,16 @@ class AccountInvoice(models.Model):
                 journal_sequence = self.journal_id.invoice_sequence_id
         return journal_sequence, domain
 
+    def _prepare_sequence_context(self):
+        self.ensure_one()
+        sequence_date = \
+            (self.journal_id.invoice_date_reference and self.date_invoice) \
+            or self.date or self.date_invoice
+        return {
+            'ir_sequence_date': sequence_date,
+            'ir_sequence_date_range': sequence_date,
+        }
+
     @api.multi
     def action_move_create(self):
         res = super(AccountInvoice, self).action_move_create()
@@ -37,8 +47,7 @@ class AccountInvoice(models.Model):
                     sequence = inv.journal_id.refund_inv_sequence_id
                 if sequence:
                     sequence = sequence.with_context(
-                        ir_sequence_date=inv.date or inv.date_invoice,
-                        ir_sequence_date_range=inv.date or inv.date_invoice,
+                        inv._prepare_sequence_context()
                     )
                     number = sequence.next_by_id()
                 else:  # pragma: no cover
