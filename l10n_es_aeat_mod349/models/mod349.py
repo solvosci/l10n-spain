@@ -9,7 +9,7 @@
 #                  <contact@eficent.com>
 # Copyright 2018 - Tecnativa - Carlos Dauden
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
-
+import math
 import re
 from odoo import models, fields, api, exceptions, _
 from odoo.tools import float_is_zero
@@ -192,17 +192,21 @@ class Mod349(models.Model):
                 # TODO: Instead continuing, generate an empty record and a msg
                 continue
             # Fetch the latest presentation made for this move
-            original_detail = detail_obj.search([
+            original_details = detail_obj.search([
                 ('move_line_id.invoice_id', '=', origin_invoice.id),
                 ('partner_record_id.operation_key', '=', op_key),
                 ('id', 'not in', visited_details.ids)
-            ], limit=1, order='report_id desc')
-            if original_detail:
-                # There's a previous 349 declaration report
-                origin_amount = original_detail.amount_untaxed
-                period_type = original_detail.report_id.period_type
-                year = original_detail.report_id.year
-                visited_details |= original_detail
+            ], order='report_id desc')
+            # we add all of them to visited, as we don't want to repeat
+            visited_details |= original_details
+            if original_details:
+                # There's at least one previous 349 declaration report
+                report = original_details.mapped('report_id')[:1]
+                original_details = original_details.filtered(
+                    lambda d: d.report_id == report)
+                origin_amount = sum(original_details.mapped('amount_untaxed'))
+                period_type = report.period_type
+                year = str(report.year)
             else:
                 # There's no previous 349 declaration report in Odoo
                 original_amls = move_line_obj.search([
@@ -227,7 +231,7 @@ class Mod349(models.Model):
                 if self.period_type == '0A':
                     period_type = '0A'
                 elif self.period_type in ('1T', '2T', '3T', '4T'):
-                    period_type = '%sT' % (int(month) % 4)
+                    period_type = '%sT' % int(math.ceil(int(month) / 3.0))
                 else:
                     period_type = month
             key = (partner, op_key, period_type, year)
